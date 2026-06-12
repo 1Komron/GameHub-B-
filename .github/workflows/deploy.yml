@@ -33,7 +33,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/1komron/gamehub-b-:latest
+          tags: ghcr.io/1komron/gamehub-backend:latest
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
@@ -45,7 +45,7 @@ jobs:
             echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u 1komron --password-stdin
             docker stop gamehub_backend || true
             docker rm gamehub_backend || true
-            docker pull ghcr.io/1komron/gamehub-b-:latest
+            docker pull ghcr.io/1komron/gamehub-backend:latest
             docker run -d \
               --name gamehub_backend \
               --network prod_default \
@@ -58,5 +58,5 @@ jobs:
               -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
               -e JWT_TTL_SECONDS=864000 \
               -e TELEGRAM_SKIP_VALIDATION=false \
-              ghcr.io/1komron/gamehub-b-:latest
+              ghcr.io/1komron/gamehub-backend:latest
             docker image prune -f

@@ -22,4 +22,4 @@ telegram:
     skip-validation: ${TELEGRAM_SKIP_VALIDATION:true}
 
 server:
-  port: 8080
+  port: 5050
