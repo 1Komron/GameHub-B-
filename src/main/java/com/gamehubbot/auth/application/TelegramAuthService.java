@@ -1,0 +1,144 @@
+package com.gamehubbot.auth.application;
+
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import com.gamehubbot.auth.dto.AuthResponse;
+import com.gamehubbot.auth.dto.MessageDigestSupport;
+import com.gamehubbot.auth.dto.UserView;
+import com.gamehubbot.auth.infrastructure.JwtGenerateService;
+import com.gamehubbot.user.domain.entity.User;
+import com.gamehubbot.user.infrastructure.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class TelegramAuthService {
+
+    private final ObjectMapper objectMapper;
+    private final UserRepository userRepository;
+    private final JwtService jwtService;
+    private final JwtGenerateService jwtGenerateService;
+
+    @Value("${telegram.bot.token}")
+    private String botToken;
+    @Value("${telegram.bot.skip-validation:false}")
+    private boolean skipValidation;
+
+    @Transactional
+    public AuthResponse authenticate(String initData) {
+        Map<String, String> values = parseInitData(initData);
+        if (!skipValidation) {
+            validate(values);
+        }
+
+        JsonNode telegramUser = parseTelegramUser(values.get("user"));
+        long telegramId = telegramUser.path("id").asLong(0);
+        if (telegramId <= 0) {
+            throw new IllegalArgumentException("Telegram user id is missing");
+        }
+
+        User user = userRepository.findByTelegramId(telegramId)
+                .map(existing -> updateUser(existing, telegramUser))
+                .orElseGet(() -> new User(
+                        telegramId,
+                        nullableText(telegramUser, "username"),
+                        nullableText(telegramUser, "first_name")
+                ));
+        User saved = userRepository.save(user);
+
+        return new AuthResponse(jwtGenerateService.generateToken(user), UserView.from(saved));
+    }
+
+    private User updateUser(User user, JsonNode telegramUser) {
+        user.setUsername(nullableText(telegramUser, "username"));
+        user.setFirstName(nullableText(telegramUser, "first_name"));
+        return user;
+    }
+
+    private void validate(Map<String, String> values) {
+        if (botToken == null || botToken.isBlank()) {
+            throw new IllegalStateException("Telegram bot token is not configured");
+        }
+        String receivedHash = values.get("hash");
+        if (receivedHash == null || receivedHash.isBlank()) {
+            throw new IllegalArgumentException("Telegram initData hash is missing");
+        }
+        String dataCheckString = values.entrySet().stream()
+                .filter(entry -> !"hash".equals(entry.getKey()) && !"signature".equals(entry.getKey()))
+                .sorted(Comparator.comparing(Map.Entry::getKey))
+                .map(entry -> entry.getKey() + "=" + entry.getValue())
+                .collect(Collectors.joining("\n"));
+        String expectedHash = telegramHash(dataCheckString);
+        if (!MessageDigestSupport.constantTimeEquals(expectedHash.getBytes(StandardCharsets.UTF_8), receivedHash.getBytes(StandardCharsets.UTF_8))) {
+            throw new IllegalArgumentException("Telegram initData signature is invalid");
+        }
+    }
+
+    private String telegramHash(String dataCheckString) {
+        try {
+            byte[] secret = hmac(botToken.getBytes(StandardCharsets.UTF_8), "WebAppData".getBytes(StandardCharsets.UTF_8));
+            byte[] hash = hmac(dataCheckString.getBytes(StandardCharsets.UTF_8), secret);
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte value : hash) {
+                hex.append(String.format("%02x", value));
+            }
+            return hex.toString();
+        } catch (Exception exception) {
+            throw new IllegalStateException("Could not validate Telegram initData", exception);
+        }
+    }
+
+    private byte[] hmac(byte[] value, byte[] key) throws Exception {
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(key, "HmacSHA256"));
+        return mac.doFinal(value);
+    }
+
+    private JsonNode parseTelegramUser(String userJson) {
+        if (userJson == null || userJson.isBlank()) {
+            throw new IllegalArgumentException("Telegram initData user is missing");
+        }
+        try {
+            return objectMapper.readTree(userJson);
+        } catch (Exception exception) {
+            throw new IllegalArgumentException("Telegram user payload is invalid", exception);
+        }
+    }
+
+    private Map<String, String> parseInitData(String initData) {
+        if (initData == null || initData.isBlank()) {
+            throw new IllegalArgumentException("initData is required");
+        }
+        Map<String, String> values = new LinkedHashMap<>();
+        for (String pair : initData.split("&")) {
+            int separator = pair.indexOf('=');
+            if (separator > 0) {
+                String key = decode(pair.substring(0, separator));
+                String value = decode(pair.substring(separator + 1));
+                values.put(key, value);
+            }
+        }
+        return values;
+    }
+
+    private String decode(String value) {
+        return URLDecoder.decode(value, StandardCharsets.UTF_8);
+    }
+
+    private String nullableText(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        return value == null || value.isNull() ? null : value.asText();
+    }
+}

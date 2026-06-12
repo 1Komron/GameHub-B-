@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: GameHubBot
+
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/gamehub}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:root123}
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+
+jwt:
+    secret: ${JWT_SECRET:sA/q6EM91tUqBpOvJiHotIQIblsO+jPyqp7d1nDBcgs=}
+    ttl-seconds: ${JWT_TTL_SECONDS:8640000}
+
+telegram:
+  bot:
+    token: ${TELEGRAM_BOT_TOKEN:afsffa}
+    skip-validation: ${TELEGRAM_SKIP_VALIDATION:true}
+
+server:
+  port: 8080
