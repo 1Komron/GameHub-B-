@@ -42,7 +42,7 @@ public class TelegramAuthService {
             validate(values);
         }
 
-        JsonNode telegramUser = parseTelegramUser(decode(values.get("user")));
+        JsonNode telegramUser = parseTelegramUser(values.get("user"));
         long telegramId = telegramUser.path("id").asLong(0);
         if (telegramId <= 0) {
             throw new IllegalArgumentException("Telegram user id is missing");
