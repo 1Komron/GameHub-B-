@@ -28,7 +28,6 @@ public class TelegramAuthService {
 
     private final ObjectMapper objectMapper;
     private final UserRepository userRepository;
-    private final JwtService jwtService;
     private final JwtGenerateService jwtGenerateService;
 
     @Value("${telegram.bot.token}")
@@ -43,7 +42,7 @@ public class TelegramAuthService {
             validate(values);
         }
 
-        JsonNode telegramUser = parseTelegramUser(values.get("user"));
+        JsonNode telegramUser = parseTelegramUser(decode(values.get("user")));
         long telegramId = telegramUser.path("id").asLong(0);
         if (telegramId <= 0) {
             throw new IllegalArgumentException("Telegram user id is missing");
@@ -118,16 +117,13 @@ public class TelegramAuthService {
     }
 
     private Map<String, String> parseInitData(String initData) {
-        if (initData == null || initData.isBlank()) {
-            throw new IllegalArgumentException("initData is required");
-        }
         Map<String, String> values = new LinkedHashMap<>();
         for (String pair : initData.split("&")) {
             int separator = pair.indexOf('=');
             if (separator > 0) {
                 String key = decode(pair.substring(0, separator));
-                String value = decode(pair.substring(separator + 1));
-                values.put(key, value);
+                String rawValue = pair.substring(separator + 1); // НЕ декодируем
+                values.put(key, rawValue);
             }
         }
         return values;
