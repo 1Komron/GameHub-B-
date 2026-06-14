@@ -1,7 +1,6 @@
 package com.gamehubbot.auth.api;
 
 import com.gamehubbot.auth.dto.AuthRequest;
-import com.gamehubbot.auth.dto.AuthResponse;
 import com.gamehubbot.auth.application.TelegramAuthService;
 import com.gamehubbot.common.ResponseMessage;
 import org.springframework.http.ResponseEntity;
