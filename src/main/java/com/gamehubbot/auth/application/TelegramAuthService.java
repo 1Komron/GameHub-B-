@@ -122,8 +122,8 @@ public class TelegramAuthService {
             int separator = pair.indexOf('=');
             if (separator > 0) {
                 String key = decode(pair.substring(0, separator));
-                String rawValue = pair.substring(separator + 1); // НЕ декодируем
-                values.put(key, rawValue);
+                String value = decode(pair.substring(separator + 1)); // декодируем!
+                values.put(key, value);
             }
         }
         return values;
