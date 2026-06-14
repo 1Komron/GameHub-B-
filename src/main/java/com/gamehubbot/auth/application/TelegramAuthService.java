@@ -70,18 +70,34 @@ public class TelegramAuthService {
         if (botToken == null || botToken.isBlank()) {
             throw new IllegalStateException("Telegram bot token is not configured");
         }
-        String receivedHash = values.get("hash");
+        // работаем с копией чтобы не менять оригинал
+        Map<String, String> params = new LinkedHashMap<>(values);
+
+        String receivedHash = params.remove("hash");
         if (receivedHash == null || receivedHash.isBlank()) {
             throw new IllegalArgumentException("Telegram initData hash is missing");
         }
-        String dataCheckString = values.entrySet().stream()
-                .filter(entry -> !"hash".equals(entry.getKey()) && !"signature".equals(entry.getKey()))
-                .sorted(Comparator.comparing(Map.Entry::getKey))
-                .map(entry -> entry.getKey() + "=" + entry.getValue())
+        params.remove("signature"); // убираем signature если есть
+
+        String dataCheckString = params.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(e -> e.getKey() + "=" + safeDecode(e.getValue()))
                 .collect(Collectors.joining("\n"));
+
         String expectedHash = telegramHash(dataCheckString);
-        if (!MessageDigestSupport.constantTimeEquals(expectedHash.getBytes(StandardCharsets.UTF_8), receivedHash.getBytes(StandardCharsets.UTF_8))) {
+        if (!MessageDigestSupport.constantTimeEquals(
+                expectedHash.getBytes(StandardCharsets.UTF_8),
+                receivedHash.getBytes(StandardCharsets.UTF_8))) {
             throw new IllegalArgumentException("Telegram initData signature is invalid");
+        }
+    }
+
+    private String safeDecode(String value) {
+        if (!value.contains("%")) return value;
+        try {
+            return URLDecoder.decode(value, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            return value;
         }
     }
 
