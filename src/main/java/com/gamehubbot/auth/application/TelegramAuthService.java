@@ -32,30 +32,30 @@ public class TelegramAuthService {
     private final UserRepository userRepository;
     private final JwtGenerateService jwtGenerateService;
 
-    @Value("${telegram.bot.token}")
+    @Value("${telegram.bot.token}" )
     private String botToken;
-    @Value("${telegram.bot.skip-validation:false}")
+    @Value("${telegram.bot.skip-validation:false}" )
     private boolean skipValidation;
 
     @Transactional
     public AuthResponse authenticate(String initData) {
         Map<String, String> values = parseInitData(initData);
         if (!skipValidation) {
-            validate(values);
+            verify(initData);
         }
 
-        JsonNode telegramUser = parseTelegramUser(values.get("user"));
-        long telegramId = telegramUser.path("id").asLong(0);
+        JsonNode telegramUser = parseTelegramUser(values.get("user" ));
+        long telegramId = telegramUser.path("id" ).asLong(0);
         if (telegramId <= 0) {
-            throw new IllegalArgumentException("Telegram user id is missing");
+            throw new IllegalArgumentException("Telegram user id is missing" );
         }
 
         User user = userRepository.findByTelegramId(telegramId)
                 .map(existing -> updateUser(existing, telegramUser))
                 .orElseGet(() -> new User(
                         telegramId,
-                        nullableText(telegramUser, "username"),
-                        nullableText(telegramUser, "first_name")
+                        nullableText(telegramUser, "username" ),
+                        nullableText(telegramUser, "first_name" )
                 ));
         User saved = userRepository.save(user);
 
@@ -63,31 +63,78 @@ public class TelegramAuthService {
     }
 
     private User updateUser(User user, JsonNode telegramUser) {
-        user.setUsername(nullableText(telegramUser, "username"));
-        user.setFirstName(nullableText(telegramUser, "first_name"));
+        user.setUsername(nullableText(telegramUser, "username" ));
+        user.setFirstName(nullableText(telegramUser, "first_name" ));
         return user;
+    }
+
+    public boolean verify(String initData) {
+        try {
+            Map<String, String> params = new LinkedHashMap<>();
+            for (String pair : initData.split("&" )) {
+                int eq = pair.indexOf('=');
+                if (eq > 0) {
+                    params.put(
+                            pair.substring(0, eq),
+                            pair.substring(eq + 1)
+                    );
+                }
+            }
+
+            String receivedHash = params.remove("hash" );
+            if (receivedHash == null || receivedHash.isBlank()) return false;
+
+            String dataCheckString = params.entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .map(e -> e.getKey() + "=" + safeDecode(e.getValue()))
+                    .collect(Collectors.joining("\n" ));
+
+            byte[] secretKey = hmac(
+                    botToken.trim().getBytes(StandardCharsets.UTF_8),
+                    "WebAppData".getBytes(StandardCharsets.UTF_8)
+            );
+
+            byte[] computedHash = hmac(
+                    dataCheckString.getBytes(StandardCharsets.UTF_8),
+                    secretKey
+            );
+
+            String computed = toHex(computedHash);
+
+            return computed.equals(receivedHash);
+
+        } catch (Exception e) {
+            log.error("verify error", e);
+            return false;
+        }
+    }
+
+    private String toHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) sb.append(String.format("%02x", b));
+        return sb.toString();
     }
 
     private void validate(Map<String, String> values) {
         log.info("Keys in values: {}", values.keySet());
-        log.info("Has signature: {}", values.containsKey("signature"));
+        log.info("Has signature: {}", values.containsKey("signature" ));
 
         if (botToken == null || botToken.isBlank()) {
-            throw new IllegalStateException("Telegram bot token is not configured");
+            throw new IllegalStateException("Telegram bot token is not configured" );
         }
         // работаем с копией чтобы не менять оригинал
         Map<String, String> params = new LinkedHashMap<>(values);
 
-        String receivedHash = params.remove("hash");
+        String receivedHash = params.remove("hash" );
         if (receivedHash == null || receivedHash.isBlank()) {
-            throw new IllegalArgumentException("Telegram initData hash is missing");
+            throw new IllegalArgumentException("Telegram initData hash is missing" );
         }
-        params.remove("signature"); // убираем signature если есть
+        params.remove("signature" ); // убираем signature если есть
 
         String dataCheckString = params.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .map(e -> e.getKey() + "=" + safeDecode(e.getValue()))
-                .collect(Collectors.joining("\n"));
+                .collect(Collectors.joining("\n" ));
 
         log.info("dataCheckString:\n{}", dataCheckString);
         log.info("receivedHash: {}", receivedHash);
@@ -99,12 +146,12 @@ public class TelegramAuthService {
         if (!MessageDigestSupport.constantTimeEquals(
                 expectedHash.getBytes(StandardCharsets.UTF_8),
                 receivedHash.getBytes(StandardCharsets.UTF_8))) {
-            throw new IllegalArgumentException("Telegram initData signature is invalid");
+            throw new IllegalArgumentException("Telegram initData signature is invalid" );
         }
     }
 
     private String safeDecode(String value) {
-        if (!value.contains("%")) return value;
+        if (!value.contains("%" )) return value;
         try {
             return URLDecoder.decode(value, StandardCharsets.UTF_8);
         } catch (IllegalArgumentException e) {
@@ -127,14 +174,14 @@ public class TelegramAuthService {
     }
 
     private byte[] hmac(byte[] value, byte[] key) throws Exception {
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(key, "HmacSHA256"));
+        Mac mac = Mac.getInstance("HmacSHA256" );
+        mac.init(new SecretKeySpec(key, "HmacSHA256" ));
         return mac.doFinal(value);
     }
 
     private JsonNode parseTelegramUser(String userJson) {
         if (userJson == null || userJson.isBlank()) {
-            throw new IllegalArgumentException("Telegram initData user is missing");
+            throw new IllegalArgumentException("Telegram initData user is missing" );
         }
         try {
             return objectMapper.readTree(userJson);
@@ -145,7 +192,7 @@ public class TelegramAuthService {
 
     private Map<String, String> parseInitData(String initData) {
         Map<String, String> values = new LinkedHashMap<>();
-        for (String pair : initData.split("&")) {
+        for (String pair : initData.split("&" )) {
             int separator = pair.indexOf('=');
             if (separator > 0) {
                 String key = decode(pair.substring(0, separator));
