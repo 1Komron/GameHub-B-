@@ -1,5 +1,6 @@
 package com.gamehubbot.auth.application;
 
+import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.gamehubbot.auth.dto.AuthResponse;
@@ -22,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TelegramAuthService {
@@ -67,6 +69,9 @@ public class TelegramAuthService {
     }
 
     private void validate(Map<String, String> values) {
+        log.info("Keys in values: {}", values.keySet());
+        log.info("Has signature: {}", values.containsKey("signature"));
+
         if (botToken == null || botToken.isBlank()) {
             throw new IllegalStateException("Telegram bot token is not configured");
         }
@@ -84,7 +89,13 @@ public class TelegramAuthService {
                 .map(e -> e.getKey() + "=" + safeDecode(e.getValue()))
                 .collect(Collectors.joining("\n"));
 
+        log.info("dataCheckString:\n{}", dataCheckString);
+        log.info("receivedHash: {}", receivedHash);
+
         String expectedHash = telegramHash(dataCheckString);
+
+        log.info("expectedHash: {}", expectedHash);
+
         if (!MessageDigestSupport.constantTimeEquals(
                 expectedHash.getBytes(StandardCharsets.UTF_8),
                 receivedHash.getBytes(StandardCharsets.UTF_8))) {
