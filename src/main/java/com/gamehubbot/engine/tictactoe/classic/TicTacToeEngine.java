@@ -1,5 +1,7 @@
-package com.gamehubbot.engine.tictactoe;
+package com.gamehubbot.engine.tictactoe.classic;
 
+import com.gamehubbot.engine.tictactoe.TicTacToeBase;
+import com.gamehubbot.engine.tictactoe.shift.TicTacToeShiftState;
 import tools.jackson.databind.ObjectMapper;
 import com.gamehubbot.engine.GameEngine;
 import com.gamehubbot.engine.GameResult;
@@ -13,14 +15,8 @@ import java.util.Objects;
 
 @Component
 @RequiredArgsConstructor
-public class TicTacToeEngine implements GameEngine {
+public class TicTacToeEngine extends TicTacToeBase implements GameEngine {
     private final ObjectMapper objectMapper;
-
-    private static final int[][] WIN_LINES = {
-            {0, 1, 2}, {3, 4, 5}, {6, 7, 8},
-            {0, 3, 6}, {1, 4, 7}, {2, 5, 8},
-            {0, 4, 8}, {2, 4, 6}
-    };
 
     @Override
     public GameCode gameCode() {
@@ -28,22 +24,17 @@ public class TicTacToeEngine implements GameEngine {
     }
 
     @Override
-    public int maxPlayers() {
-        return 2;
-    }
-
-    @Override
     public Object createInitialState() {
-        return new TicTacToeState();
+        return new TicTacToeShiftState();
     }
 
     @Override
     public Object applyMove(Object state, MoveCommand command) {
         TicTacToeState ticTacToeState = objectMapper.convertValue(state, TicTacToeState.class);
         GameResult result = evaluate(ticTacToeState);
-        if (result.finished()) {
-            throw new IllegalStateException("Match is already finished");
-        }
+
+        result.ensureFinished();
+
         if (command.seat() != ticTacToeState.getCurrentSeat()) {
             throw new IllegalArgumentException("It is not this player's turn");
         }
@@ -77,7 +68,7 @@ public class TicTacToeEngine implements GameEngine {
     public GameResult evaluate(Object state) {
         TicTacToeState ticTacToeState = objectMapper.convertValue(state, TicTacToeState.class);
         List<String> board = ticTacToeState.getBoard();
-        for (int[] line : WIN_LINES) {
+        for (int[] line : getWinLines()) {
             String mark = board.get(line[0]);
             if (mark != null && mark.equals(board.get(line[1])) && mark.equals(board.get(line[2]))) {
                 return GameResult.win("X".equals(mark) ? 0 : 1, line);

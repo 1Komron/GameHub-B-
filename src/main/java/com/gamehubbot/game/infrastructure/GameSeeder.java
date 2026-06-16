@@ -18,6 +18,7 @@ public class GameSeeder implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         seed(GameCode.TIC_TAC_TOE, "Tic Tac Toe", true);
+        seed(GameCode.TIC_TAC_TOE_SHIFT, "Tic Tac Toe Shift", true);
         seed(GameCode.CHECKERS, "Checkers", false);
         seed(GameCode.BOWLING, "Bowling", false);
         seed(GameCode.CHESS, "Chess", false);

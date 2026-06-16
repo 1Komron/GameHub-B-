@@ -33,11 +33,7 @@ import com.gamehubbot.common.websocket.MatchWebSocketBroadcaster;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 import static com.gamehubbot.match.domain.enums.PlayerRole.CREATOR;
 import static com.gamehubbot.match.domain.enums.PlayerRole.PLAYER;
@@ -57,6 +53,8 @@ public class MatchManagement {
     private final StatsService statsService;
     private final MatchJoinCodeGenerator joinCodeGenerator;
 
+    private final Random random = new Random();
+
     @Transactional
     public CreateMatchResponse createMatch(CreateMatchRequest request, Long creatorId) {
         Game game = loadByCode(request.gameCode());
@@ -69,7 +67,8 @@ public class MatchManagement {
         Match match = Match.create(game.getId(), joinCode);
         matchRepository.save(match);
 
-        MatchPlayer player = MatchPlayer.create(match.getId(), creatorId, 0, true, CREATOR);
+        int seat = random.nextBoolean() ? 0 : 1;
+        MatchPlayer player = MatchPlayer.create(match.getId(), creatorId, seat, true, CREATOR);
         playerRepository.save(player);
 
         MatchState matchState = MatchState.create(match, writeJson(engine.createInitialState()));
@@ -151,6 +150,7 @@ public class MatchManagement {
         moveRepository.save(new Move(match, player, moveNumber, writeJson(payload)));
 
         GameResult result = engine.evaluate(nextState);
+
         JsonNode stateNode = readJsonNode(nextStateJson);
         if (result.finished()) {
             match.finishMatch();

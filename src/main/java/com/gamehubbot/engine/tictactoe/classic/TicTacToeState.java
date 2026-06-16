@@ -1,4 +1,4 @@
-package com.gamehubbot.engine.tictactoe;
+package com.gamehubbot.engine.tictactoe.classic;
 
 import lombok.Getter;
 import lombok.Setter;

@@ -23,4 +23,10 @@ public record GameResult(
     public static GameResult drawn() {
         return new GameResult(true, null, null, true);
     }
+
+    public void ensureFinished() {
+        if (finished) {
+            throw new IllegalStateException("Match is already finished");
+        }
+    }
 }

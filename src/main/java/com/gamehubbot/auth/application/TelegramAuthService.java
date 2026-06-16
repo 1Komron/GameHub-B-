@@ -39,6 +39,19 @@ public class TelegramAuthService {
 
     @Transactional
     public AuthResponse authenticate(String initData) {
+        if (skipValidation && initData.startsWith("dev_mock_")) {
+            String userNum = initData.replace("dev_mock_", "");
+            long telegramId = "1".equals(userNum) ? 111111111L : 222222222L;
+            String username = "devuser" + userNum;
+            String firstName = "Dev " + ("1".equals(userNum) ? "One" : "Two");
+//
+//            userRepository.findByTelegramId(telegramId)
+//                    .ifPresent(userRepository::delete);
+
+            User devUser = new User(telegramId, username, firstName);
+            return new AuthResponse(jwtGenerateService.generateToken(devUser), UserView.from(devUser));
+        }
+
         Map<String, String> values = parseInitData(initData);
         if (!skipValidation) {
             verify(initData);
