@@ -34,7 +34,7 @@ public class SecurityConfig {
                         auth
                                 .requestMatchers(
                                         "/api/auth/telegram",
-                                        "/ws/matches/**" )
+                                        "/ws/**" )
                                 .permitAll()
                                 .requestMatchers(
                                         "/swagger-ui/**",

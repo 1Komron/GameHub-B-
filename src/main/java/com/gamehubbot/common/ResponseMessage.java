@@ -8,4 +8,8 @@ public record ResponseMessage(
     public static ResponseMessage success(String msg, Object data) {
         return new ResponseMessage(true, msg, data);
     }
+
+    public static ResponseMessage fail(String msg, Object data) {
+        return new ResponseMessage(true, msg, data);
+    }
 }

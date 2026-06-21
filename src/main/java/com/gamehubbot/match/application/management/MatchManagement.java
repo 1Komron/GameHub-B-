@@ -1,9 +1,12 @@
 package com.gamehubbot.match.application.management;
 
+import com.gamehubbot.common.websocket.presence.InviteEvent;
+import com.gamehubbot.common.websocket.presence.PresenceRegistry;
 import com.gamehubbot.game.domain.enums.GameCode;
 import com.gamehubbot.match.application.MatchJoinCodeGenerator;
 import com.gamehubbot.game.exceptions.GameNotFoundException;
 import com.gamehubbot.match.exceptions.MatchNotFoundException;
+import com.gamehubbot.user.domain.entity.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import tools.jackson.databind.JsonNode;
@@ -28,8 +31,8 @@ import com.gamehubbot.match.infrastructure.repository.MatchRepository;
 import com.gamehubbot.match.infrastructure.repository.MatchStateRepository;
 import com.gamehubbot.match.infrastructure.repository.MoveRepository;
 import com.gamehubbot.stats.application.StatsService;
-import com.gamehubbot.common.websocket.MatchEvent;
-import com.gamehubbot.common.websocket.MatchWebSocketBroadcaster;
+import com.gamehubbot.common.websocket.match.MatchEvent;
+import com.gamehubbot.common.websocket.match.MatchWebSocketBroadcaster;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,6 +55,7 @@ public class MatchManagement {
     private final MatchWebSocketBroadcaster broadcaster;
     private final StatsService statsService;
     private final MatchJoinCodeGenerator joinCodeGenerator;
+    private final PresenceRegistry presenceRegistry;
 
     private final Random random = new Random();
 
@@ -219,6 +223,24 @@ public class MatchManagement {
         broadcaster.broadcast(id, MatchEvent.matchStarted(id, view.state()));
     }
 
+    @Transactional
+    public boolean inviteUser(UUID matchId, Long userId, UserPrincipal user) {
+        Match match = loadMatch(matchId);
+
+        match.ensureWaiting();
+
+        InviteEvent event = InviteEvent.of(
+                user.getUserTelegramId(),
+                user.getFirstName(),
+                matchId.toString(),
+                gameRepository.findById(match.getGameId())
+                        .orElseThrow()
+                        .getCode()
+                        .name());
+
+        return presenceRegistry.sendToUser(userId, event);
+    }
+
     private int nextSeat(List<MatchPlayer> players, int maxPlayers) {
         Set<Integer> occupied = new HashSet<>();
         for (MatchPlayer player : players) {
@@ -291,4 +313,5 @@ public class MatchManagement {
         return playerRepository.findByMatchIdAndUserId(matchId, playerId)
                 .orElseThrow(() -> new IllegalStateException("User is not a player in this match"));
     }
+
 }

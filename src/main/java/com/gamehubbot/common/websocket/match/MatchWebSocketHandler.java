@@ -1,4 +1,4 @@
-package com.gamehubbot.common.websocket;
+package com.gamehubbot.common.websocket.match;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

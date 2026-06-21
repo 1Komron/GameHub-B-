@@ -63,6 +63,16 @@ public class MatchController {
         return ResponseEntity.ok(ResponseMessage.success("Muvaffaqiyatli", data));
     }
 
+    @PostMapping("/{matchId}/invite/{userId}")
+    public ResponseEntity<ResponseMessage> inviteUser(@PathVariable UUID matchId,
+                                                      @PathVariable Long userId,
+                                                      @AuthenticationPrincipal UserPrincipal user) {
+        boolean data = matchManagement.inviteUser(matchId, userId, user);
+        return ResponseEntity.ok(
+                data ? ResponseMessage.success("Muvaffaqiyatli taklif qilindi", null)
+                        : ResponseMessage.fail("Foydalanuvchi topilmadi yoki allaqachon taklif qilingan", null));
+    }
+
     @DeleteMapping("/{id}/leave")
     public ResponseEntity<ResponseMessage> leaveMatch(@PathVariable UUID id,
                                                       @AuthenticationPrincipal UserPrincipal user) {
