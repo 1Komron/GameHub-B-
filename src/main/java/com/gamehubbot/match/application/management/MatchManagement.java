@@ -88,7 +88,7 @@ public class MatchManagement {
         if (match.getStatus() != MatchStatus.WAITING) {
             return toView(match);
         }
-
+        
         if (playerRepository.findByMatchIdAndUserId(matchId, userTelegramId).isPresent()) {
             return toView(match);
         }
