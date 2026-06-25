@@ -2,6 +2,7 @@ package com.gamehubbot.common.websocket.presence;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -17,11 +18,19 @@ public class PresenceRegistry {
     private final ConcurrentHashMap<Long, WebSocketSession> sessionsByUser = new ConcurrentHashMap<>();
 
     public void connect(Long userId, WebSocketSession session) {
-        sessionsByUser.put(userId, session);
+        WebSocketSession old = sessionsByUser.put(userId, session);
+        if (old != null && old.isOpen() && old != session) {
+            try {
+                old.close(CloseStatus.NORMAL.withReason("New session opened"));
+            } catch (Exception ignored) {
+            }
+        }
     }
 
-    public void disconnect(Long userId) {
-        sessionsByUser.remove(userId);
+    public void disconnect(Long userId, WebSocketSession session) {
+        sessionsByUser.computeIfPresent(userId, (id, existing) ->
+                existing == session ? null : existing
+        );
     }
 
     public boolean isOnline(Long userId) {

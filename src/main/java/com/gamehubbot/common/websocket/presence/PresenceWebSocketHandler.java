@@ -23,7 +23,7 @@ public class PresenceWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, @NonNull CloseStatus status) {
         Long userId = (Long) session.getAttributes().get("userId");
         if (userId != null) {
-            presenceRegistry.disconnect(userId);
+            presenceRegistry.disconnect(userId, session);
         }
     }
 }

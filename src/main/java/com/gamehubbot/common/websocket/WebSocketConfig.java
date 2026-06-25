@@ -21,6 +21,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(matchWebSocketHandler, "/ws/matches/{matchId}")
+                .addInterceptors(jwtHandshakeInterceptor)
                 .setAllowedOriginPatterns("*");
 
         registry.addHandler(presenceWebSocketHandler, "/ws/presence")

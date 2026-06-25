@@ -25,18 +25,27 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
         String token = UriComponentsBuilder.fromUri(request.getURI())
                 .build().getQueryParams().getFirst("token");
 
-        if (token == null || jwtService.isTokenExpired(token)) {
+        if (token == null || token.isBlank()) {
             response.setStatusCode(HttpStatus.UNAUTHORIZED);
             return false;
         }
 
-        attributes.put("userId", jwtService.extractUserId(token));
-        return true;
+        try {
+            if (jwtService.isTokenExpired(token)) {
+                response.setStatusCode(HttpStatus.UNAUTHORIZED);
+                return false;
+            }
+            attributes.put("userId", jwtService.extractUserId(token));
+            return true;
+        } catch (io.jsonwebtoken.JwtException | IllegalArgumentException e) {
+            response.setStatusCode(HttpStatus.UNAUTHORIZED);
+            return false;
+        }
     }
 
     @Override
     public void afterHandshake(@NonNull ServerHttpRequest request, @NonNull ServerHttpResponse response,
                                @NonNull WebSocketHandler wsHandler, Exception exception) {
-        // не нужен
+
     }
 }
