@@ -34,7 +34,7 @@ public class SecurityConfig {
                         auth
                                 .requestMatchers(
                                         "/api/auth/telegram",
-                                        "/ws/**" )
+                                        "/ws/**")
                                 .permitAll()
                                 .requestMatchers(
                                         "/swagger-ui/**",
@@ -66,9 +66,9 @@ public class SecurityConfig {
                 "https://game-hub-bot.duckdns.org"
         ));
 
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS" ));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Origin", "Accept", "X-Requested-With" ));
-        configuration.setExposedHeaders(List.of("Authorization" ));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Origin", "Accept", "X-Requested-With"));
+        configuration.setExposedHeaders(List.of("Authorization"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

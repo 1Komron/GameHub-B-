@@ -21,6 +21,9 @@ public class JwtGenerateService {
     @Value("${jwt.ttl-seconds}")
     private long expirationDate;
 
+    private static final String USERNAME_CLAIM = "username";
+
+
     private SecretKey getSignInKey() {
         return Keys.hmacShaKeyFor(
                 token.getBytes(StandardCharsets.UTF_8)
@@ -30,7 +33,7 @@ public class JwtGenerateService {
     public String generateToken(User user) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getTelegramId().toString());
-        claims.put("username", user.getUsername());
+        claims.put(USERNAME_CLAIM, user.getUsername());
         claims.put("firstName", user.getFirstName());
 
         return Jwts.builder()
@@ -43,7 +46,11 @@ public class JwtGenerateService {
     }
 
     public String extractUsername(String token) {
-        return getClaims(token).getSubject();
+        return getClaims(token).get(USERNAME_CLAIM).toString();
+    }
+
+    public String extractFirstName(String token) {
+        return getClaims(token).get("firstName").toString();
     }
 
     public Long extractUserId(String token) {

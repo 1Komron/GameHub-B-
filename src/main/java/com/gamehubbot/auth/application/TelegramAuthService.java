@@ -4,7 +4,6 @@ import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.gamehubbot.auth.dto.AuthResponse;
-import com.gamehubbot.auth.dto.MessageDigestSupport;
 import com.gamehubbot.auth.dto.UserView;
 import com.gamehubbot.auth.infrastructure.JwtGenerateService;
 import com.gamehubbot.user.domain.entity.User;
@@ -18,7 +17,6 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -45,17 +43,14 @@ public class TelegramAuthService {
             long telegramId = "1".equals(userNum) ? 111111111L : 222222222L;
             String username = "devuser" + userNum;
             String firstName = "Dev " + ("1".equals(userNum) ? "One" : "Two");
-//
-//            userRepository.findByTelegramId(telegramId)
-//                    .ifPresent(userRepository::delete);
 
             User devUser = new User(telegramId, username, firstName);
             return new AuthResponse(jwtGenerateService.generateToken(devUser), UserView.from(devUser));
         }
 
         Map<String, String> values = parseInitData(initData);
-        if (!skipValidation) {
-            verify(initData);
+        if (!skipValidation && !verify(initData)) {
+            throw new IllegalArgumentException("Invalid Telegram initData signature");
         }
 
         JsonNode telegramUser = parseTelegramUser(values.get("user"));
@@ -129,61 +124,12 @@ public class TelegramAuthService {
         return sb.toString();
     }
 
-    private void validate(Map<String, String> values) {
-        log.info("Keys in values: {}", values.keySet());
-        log.info("Has signature: {}", values.containsKey("signature"));
-
-        if (botToken == null || botToken.isBlank()) {
-            throw new IllegalStateException("Telegram bot token is not configured");
-        }
-        // работаем с копией чтобы не менять оригинал
-        Map<String, String> params = new LinkedHashMap<>(values);
-
-        String receivedHash = params.remove("hash");
-        if (receivedHash == null || receivedHash.isBlank()) {
-            throw new IllegalArgumentException("Telegram initData hash is missing");
-        }
-        params.remove("signature"); // убираем signature если есть
-
-        String dataCheckString = params.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(e -> e.getKey() + "=" + safeDecode(e.getValue()))
-                .collect(Collectors.joining("\n"));
-
-        log.info("dataCheckString:\n{}", dataCheckString);
-        log.info("receivedHash: {}", receivedHash);
-
-        String expectedHash = telegramHash(dataCheckString);
-
-        log.info("expectedHash: {}", expectedHash);
-
-        if (!MessageDigestSupport.constantTimeEquals(
-                expectedHash.getBytes(StandardCharsets.UTF_8),
-                receivedHash.getBytes(StandardCharsets.UTF_8))) {
-            throw new IllegalArgumentException("Telegram initData signature is invalid");
-        }
-    }
-
     private String safeDecode(String value) {
         if (!value.contains("%")) return value;
         try {
             return URLDecoder.decode(value, StandardCharsets.UTF_8);
         } catch (IllegalArgumentException e) {
             return value;
-        }
-    }
-
-    private String telegramHash(String dataCheckString) {
-        try {
-            byte[] secret = hmac(botToken.getBytes(StandardCharsets.UTF_8), "WebAppData".getBytes(StandardCharsets.UTF_8));
-            byte[] hash = hmac(dataCheckString.getBytes(StandardCharsets.UTF_8), secret);
-            StringBuilder hex = new StringBuilder(hash.length * 2);
-            for (byte value : hash) {
-                hex.append(String.format("%02x", value));
-            }
-            return hex.toString();
-        } catch (Exception exception) {
-            throw new IllegalStateException("Could not validate Telegram initData", exception);
         }
     }
 
@@ -223,6 +169,6 @@ public class TelegramAuthService {
 
     private String nullableText(JsonNode node, String field) {
         JsonNode value = node.get(field);
-        return value == null || value.isNull() ? null : value.asText();
+        return value == null || value.isNull() ? null : value.asString();
     }
 }

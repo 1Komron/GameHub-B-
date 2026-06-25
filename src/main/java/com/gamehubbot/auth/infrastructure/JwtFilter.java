@@ -39,8 +39,13 @@ public class JwtFilter extends OncePerRequestFilter {
         }
 
         final String jwt = authHeader.substring(7);
+        if (jwt.isBlank()) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         final String username = jwtGenerateService.extractUsername(jwt);
-        final String firstName = jwtGenerateService.extractUsername(jwt);
+        final String firstName = jwtGenerateService.extractFirstName(jwt);
         final Long useId = jwtGenerateService.extractUserId(jwt);
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
