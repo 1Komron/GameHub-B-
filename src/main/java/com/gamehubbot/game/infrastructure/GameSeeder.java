@@ -19,7 +19,7 @@ public class GameSeeder implements CommandLineRunner {
     public void run(String... args) {
         seed(GameCode.TIC_TAC_TOE, "Tic Tac Toe", true);
         seed(GameCode.TIC_TAC_TOE_SHIFT, "Tic Tac Toe Shift", true);
-        seed(GameCode.CHECKERS, "Checkers", false);
+        seed(GameCode.CHECKERS, "Checkers", true);
         seed(GameCode.BOWLING, "Bowling", false);
         seed(GameCode.CHESS, "Chess", false);
         seed(GameCode.CONNECT_FOUR, "Connect Four", false);

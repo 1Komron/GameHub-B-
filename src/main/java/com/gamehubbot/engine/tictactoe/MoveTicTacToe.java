@@ -1,15 +1,15 @@
-package com.gamehubbot.engine;
+package com.gamehubbot.engine.tictactoe;
 
 import tools.jackson.databind.JsonNode;
 
 import java.util.UUID;
 
-public record MoveCommand(
+public record MoveTicTacToe(
         UUID matchId,
         Long userId,
         int seat,
         JsonNode payload
-) {
+) implements MoveCommand{
     public void ensureCellParam() {
         if (!payload.has("cell") || !payload.get("cell").canConvertToInt()) {
             throw new IllegalArgumentException("Move payload must contain integer field 'cell'");

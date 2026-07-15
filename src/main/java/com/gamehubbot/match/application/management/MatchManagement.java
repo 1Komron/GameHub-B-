@@ -4,17 +4,16 @@ import com.gamehubbot.common.websocket.presence.InviteEvent;
 import com.gamehubbot.common.websocket.presence.PresenceRegistry;
 import com.gamehubbot.game.domain.enums.GameCode;
 import com.gamehubbot.match.application.MatchJoinCodeGenerator;
-import com.gamehubbot.game.exceptions.GameNotFoundException;
+import com.gamehubbot.match.application.MatchSupplier;
 import com.gamehubbot.match.exceptions.MatchNotFoundException;
 import com.gamehubbot.user.domain.entity.UserPrincipal;
 import lombok.RequiredArgsConstructor;
-import org.jspecify.annotations.NonNull;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.gamehubbot.engine.GameEngine;
 import com.gamehubbot.engine.GameEngineRegistry;
 import com.gamehubbot.engine.GameResult;
-import com.gamehubbot.engine.MoveCommand;
+import com.gamehubbot.engine.tictactoe.MoveTicTacToe;
 import com.gamehubbot.game.domain.entity.Game;
 import com.gamehubbot.game.infrastructure.repository.GameRepository;
 import com.gamehubbot.match.domain.entity.Match;
@@ -25,7 +24,6 @@ import com.gamehubbot.match.domain.enums.MatchStatus;
 import com.gamehubbot.match.dto.CreateMatchRequest;
 import com.gamehubbot.match.dto.CreateMatchResponse;
 import com.gamehubbot.match.dto.MatchView;
-import com.gamehubbot.match.dto.PlayerView;
 import com.gamehubbot.match.infrastructure.repository.MatchPlayerRepository;
 import com.gamehubbot.match.infrastructure.repository.MatchRepository;
 import com.gamehubbot.match.infrastructure.repository.MatchStateRepository;
@@ -56,12 +54,13 @@ public class MatchManagement {
     private final StatsService statsService;
     private final MatchJoinCodeGenerator joinCodeGenerator;
     private final PresenceRegistry presenceRegistry;
+    private final MatchSupplier supplier;
 
     private final Random random = new Random();
 
     @Transactional
     public CreateMatchResponse createMatch(CreateMatchRequest request, Long creatorId) {
-        Game game = loadByCode(request.gameCode());
+        Game game = supplier.loadByCode(request.gameCode());
 
         game.ensureEnabled();
 
@@ -75,7 +74,7 @@ public class MatchManagement {
         MatchPlayer player = MatchPlayer.create(match.getId(), creatorId, seat, true, CREATOR);
         playerRepository.save(player);
 
-        MatchState matchState = MatchState.create(match, writeJson(engine.createInitialState()));
+        MatchState matchState = MatchState.create(match, supplier.writeJson(engine.createInitialState()));
         stateRepository.save(matchState);
 
         return new CreateMatchResponse(match.getId(), joinCode);
@@ -83,14 +82,14 @@ public class MatchManagement {
 
     @Transactional
     public MatchView joinMatch(UUID matchId, Long userTelegramId) {
-        Match match = loadMatch(matchId);
+        Match match = supplier.loadMatch(matchId);
 
         if (match.getStatus() != MatchStatus.WAITING) {
-            return toView(match);
+            return supplier.toView(match);
         }
-        
+
         if (playerRepository.findByMatchIdAndUserId(matchId, userTelegramId).isPresent()) {
-            return toView(match);
+            return supplier.toView(match);
         }
 
         GameCode gameCode = gameRepository.findById(match.getGameId())
@@ -107,7 +106,7 @@ public class MatchManagement {
         MatchPlayer newPlayer = MatchPlayer.create(matchId, userTelegramId, seat, false, PLAYER);
         playerRepository.save(newPlayer);
 
-        MatchView view = toView(match);
+        MatchView view = supplier.toView(match);
         broadcaster.broadcast(matchId, MatchEvent.playerJoined(matchId));
         return view;
     }
@@ -123,72 +122,72 @@ public class MatchManagement {
 
     @Transactional(readOnly = true)
     public MatchView getMatch(UUID matchId) {
-        Match match = loadMatch(matchId);
-        return toView(match);
+        Match match = supplier.loadMatch(matchId);
+        return supplier.toView(match);
     }
 
     @Transactional
     public MatchView makeMove(UUID matchId, String payloadJson, Long userTelegramId) {
         JsonNode payload = objectMapper.readTree(payloadJson);
 
-        Match match = loadMatch(matchId);
+        Match match = supplier.loadMatch(matchId);
 
         match.ensureActive();
 
-        MatchPlayer player = loadPlayer(matchId, userTelegramId);
+        MatchPlayer player = supplier.loadPlayer(matchId, userTelegramId);
 
         MatchState matchState = stateRepository.findById(matchId)
                 .orElseThrow(() -> new NoSuchElementException("Match state not found"));
 
         GameEngine engine = engineRegistry.get(gameRepository.findById(match.getGameId()).orElseThrow().getCode());
 
-        Object currentState = readJson(matchState.getStateJson());
+        Object currentState = supplier.readJson(matchState.getStateJson());
 
-        Object nextState = engine.applyMove(currentState, new MoveCommand(matchId, userTelegramId, player.getSeat(), payload));
+        Object nextState = engine.applyMove(currentState, new MoveTicTacToe(matchId, userTelegramId, player.getSeat(), payload));
 
-        String nextStateJson = writeJson(nextState);
+        String nextStateJson = supplier.writeJson(nextState);
 
         matchState.setStateJson(nextStateJson);
 
         int moveNumber = Math.toIntExact(moveRepository.countByMatchId(matchId) + 1);
-        moveRepository.save(new Move(match, player, moveNumber, writeJson(payload)));
+        moveRepository.save(new Move(match, player, moveNumber, supplier.writeJson(payload)));
 
         GameResult result = engine.evaluate(nextState);
 
-        JsonNode stateNode = readJsonNode(nextStateJson);
+        JsonNode stateNode = supplier.readJsonNode(nextStateJson);
         if (result.finished()) {
             match.finishMatch();
             List<MatchPlayer> players = playerRepository.findByMatchIdOrderBySeat(matchId);
             statsService.recordFinishedMatch(match, players, result);
-            broadcaster.broadcast(matchId, MatchEvent.matchFinished(matchId, stateNode, winner(result)));
+            broadcaster.broadcast(matchId, MatchEvent.matchFinished(matchId, stateNode, supplier.winner(result)));
         } else {
             broadcaster.broadcast(matchId, MatchEvent.matchUpdated(matchId, stateNode));
         }
-        return toView(match);
+        return supplier.toView(match);
     }
 
     @Transactional
     public void readyMatch(UUID matchId, Long playerId) {
-        Match match = loadMatch(matchId);
+        Match match = supplier.loadMatch(matchId);
 
         match.ensureWaiting();
 
-        MatchPlayer player = loadPlayer(matchId, playerId);
+        MatchPlayer player = supplier.loadPlayer(matchId, playerId);
 
         player.readyUp();
         playerRepository.save(player);
 
-        MatchView view = toView(match);
+        MatchView view = supplier.toView(match);
         broadcaster.broadcast(matchId, MatchEvent.playerReady(matchId, view.players()));
     }
 
     @Transactional
     public void leaveMatch(UUID matchId, Long playerId) {
-        Match match = loadMatch(matchId);
+        Match match = supplier.loadMatch(matchId);
 
         match.ensureWaiting();
 
-        MatchPlayer player = loadPlayer(matchId, playerId);
+        MatchPlayer player = supplier.loadPlayer(matchId, playerId);
 
         playerRepository.delete(player);
 
@@ -199,19 +198,19 @@ public class MatchManagement {
             return;
         }
 
-        MatchView view = toView(match);
+        MatchView view = supplier.toView(match);
         broadcaster.broadcast(matchId, MatchEvent.playerLeft(matchId, view.state()));
     }
 
     @Transactional
     public void startMatch(UUID id, Long userTelegramId) {
-        Match match = loadMatch(id);
+        Match match = supplier.loadMatch(id);
 
         if (match.getStatus() != MatchStatus.WAITING) {
             throw new IllegalStateException("Match is not in waiting state");
         }
 
-        MatchPlayer player = loadPlayer(id, userTelegramId);
+        MatchPlayer player = supplier.loadPlayer(id, userTelegramId);
 
         player.ensureCreator();
 
@@ -219,13 +218,13 @@ public class MatchManagement {
 
         matchRepository.save(match);
 
-        MatchView view = toView(match);
+        MatchView view = supplier.toView(match);
         broadcaster.broadcast(id, MatchEvent.matchStarted(id, view.state()));
     }
 
     @Transactional
     public boolean inviteUser(UUID matchId, Long userId, UserPrincipal user) {
-        Match match = loadMatch(matchId);
+        Match match = supplier.loadMatch(matchId);
 
         match.ensureWaiting();
 
@@ -253,65 +252,4 @@ public class MatchManagement {
         }
         throw new IllegalStateException("Match is full");
     }
-
-    private MatchView toView(Match match) {
-        List<PlayerView> players = playerRepository.findByMatchIdOrderBySeat(match.getId()).stream()
-                .map(PlayerView::from)
-                .toList();
-        MatchState state = stateRepository.findById(match.getId())
-                .orElseThrow(() -> new NoSuchElementException("Match state not found"));
-        return new MatchView(
-                match.getId(),
-                gameRepository.findById(match.getGameId()).orElseThrow().getCode(),
-                match.getJoinCode(),
-                match.getStatus(),
-                match.getStartedAt(),
-                match.getFinishedAt(),
-                players,
-                readJsonNode(state.getStateJson())
-        );
-    }
-
-    private Match loadMatch(UUID matchId) {
-        return matchRepository.findById(matchId).orElseThrow(() -> new NoSuchElementException("Match not found"));
-    }
-
-    private Object readJson(String json) {
-        try {
-            return objectMapper.readValue(json, Object.class);
-        } catch (Exception exception) {
-            throw new IllegalStateException("Stored match state is invalid", exception);
-        }
-    }
-
-    private JsonNode readJsonNode(String json) {
-        try {
-            return objectMapper.readTree(json);
-        } catch (Exception exception) {
-            throw new IllegalStateException("Stored match state is invalid", exception);
-        }
-    }
-
-    private String writeJson(Object value) {
-        try {
-            return objectMapper.writeValueAsString(value);
-        } catch (Exception exception) {
-            throw new IllegalStateException("Could not serialize match data", exception);
-        }
-    }
-
-    private String winner(GameResult result) {
-        return result.winnerSeat() == null ? null : "PLAYER_" + result.winnerSeat();
-    }
-
-    private @NonNull Game loadByCode(GameCode gameCode) {
-        return gameRepository.findByCode(gameCode)
-                .orElseThrow(() -> new GameNotFoundException(gameCode));
-    }
-
-    private @NonNull MatchPlayer loadPlayer(UUID matchId, Long playerId) {
-        return playerRepository.findByMatchIdAndUserId(matchId, playerId)
-                .orElseThrow(() -> new IllegalStateException("User is not a player in this match"));
-    }
-
 }

@@ -1,11 +1,12 @@
 package com.gamehubbot.engine.tictactoe.classic;
 
+import com.gamehubbot.engine.tictactoe.MoveCommand;
 import com.gamehubbot.engine.tictactoe.TicTacToeBase;
 import com.gamehubbot.engine.tictactoe.shift.TicTacToeShiftState;
 import tools.jackson.databind.ObjectMapper;
 import com.gamehubbot.engine.GameEngine;
 import com.gamehubbot.engine.GameResult;
-import com.gamehubbot.engine.MoveCommand;
+import com.gamehubbot.engine.tictactoe.MoveTicTacToe;
 import com.gamehubbot.game.domain.enums.GameCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -29,9 +30,10 @@ public class TicTacToeEngine extends TicTacToeBase implements GameEngine {
     }
 
     @Override
-    public Object applyMove(Object state, MoveCommand command) {
+    public Object applyMove(Object state, MoveCommand move) {
         TicTacToeState ticTacToeState = objectMapper.convertValue(state, TicTacToeState.class);
         GameResult result = evaluate(ticTacToeState);
+        MoveTicTacToe command = (MoveTicTacToe) move;
 
         result.ensureFinished();
 

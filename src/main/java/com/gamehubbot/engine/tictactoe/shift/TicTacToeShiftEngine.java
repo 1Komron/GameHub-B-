@@ -2,7 +2,8 @@ package com.gamehubbot.engine.tictactoe.shift;
 
 import com.gamehubbot.engine.GameEngine;
 import com.gamehubbot.engine.GameResult;
-import com.gamehubbot.engine.MoveCommand;
+import com.gamehubbot.engine.tictactoe.MoveCommand;
+import com.gamehubbot.engine.tictactoe.MoveTicTacToe;
 import com.gamehubbot.engine.tictactoe.TicTacToeBase;
 import com.gamehubbot.engine.tictactoe.classic.TicTacToeState;
 import com.gamehubbot.game.domain.enums.GameCode;
@@ -26,9 +27,10 @@ public class TicTacToeShiftEngine extends TicTacToeBase implements GameEngine {
     }
 
     @Override
-    public Object applyMove(Object state, MoveCommand command) {
+    public Object applyMove(Object state, MoveCommand moveCommand) {
         TicTacToeShiftState shiftState = objectMapper.convertValue(state, TicTacToeShiftState.class);
         GameResult result = evaluate(shiftState);
+        MoveTicTacToe command = (MoveTicTacToe) moveCommand;
 
         result.ensureFinished();
 

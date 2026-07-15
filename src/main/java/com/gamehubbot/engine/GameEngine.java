@@ -1,5 +1,6 @@
 package com.gamehubbot.engine;
 
+import com.gamehubbot.engine.tictactoe.MoveCommand;
 import com.gamehubbot.game.domain.enums.GameCode;
 
 public interface GameEngine {

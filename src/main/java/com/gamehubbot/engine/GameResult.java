@@ -20,6 +20,10 @@ public record GameResult(
         return new GameResult(true, winnerSeat, list, false);
     }
 
+    public static GameResult win(int winnerSeat) {
+        return new GameResult(true, winnerSeat, null, false);
+    }
+
     public static GameResult drawn() {
         return new GameResult(true, null, null, true);
     }

@@ -31,7 +31,6 @@ public class MatchState {
     @JoinColumn(name = "match_id")
     private Match match;
 
-
     @Column(nullable = false, columnDefinition = "TEXT")
     private String stateJson;
 
